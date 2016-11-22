@@ -1,3 +1,9 @@
+def whyrun_supported?
+  true
+end
+
+use_inline_resources
+
 action :create do
   listen = Array(new_resource.listen || node['nginx_conf']['listen'])
   locations = JSON.parse(node.send(new_resource.precedence)['nginx_conf']['locations'].to_hash.merge(new_resource.locations).to_json)
@@ -10,11 +16,12 @@ action :create do
   nginx_group = (node['nginx']['group'] == node['nginx']['user']) ? 'root' : node['nginx']['group']
   ssl = false
 
-  test_nginx = execute "test-nginx-conf-#{conf_name}-create" do
+  test_nginx = "test-nginx-conf-#{conf_name}-create"
+
+  execute test_nginx do
     action :nothing
     command "#{node['nginx']['binary']} -t"
     only_if { new_resource.auto_enable_site }
-    notifies :restart, 'service[nginx]', new_resource.reload
   end
 
   if site_type == :dynamic
@@ -95,8 +102,6 @@ action :create do
     only_if { new_resource.auto_enable_site }
     notifies :run, test_nginx, new_resource.reload
   end
-
-  new_resource.updated_by_last_action(true)
 end
 
 action :delete do
@@ -130,25 +135,22 @@ action :delete do
       end
     end
   end
-
-  new_resource.updated_by_last_action(true)
 end
 
 action :enable do
   conf_name = new_resource.conf_name || new_resource.name
 
-  test_nginx = execute "test-nginx-conf-#{conf_name}-enable" do
+  test_nginx = "test-nginx-conf-#{conf_name}-enable"
+
+  execute test_nginx do
     action :nothing
     command "#{node['nginx']['binary']} -t"
-    notifies :restart, 'service[nginx]', new_resource.reload
   end
 
   link "#{node['nginx']['dir']}/sites-enabled/#{conf_name}" do
     to "#{node['nginx']['dir']}/sites-available/#{conf_name}"
     notifies :run, test_nginx, new_resource.reload
   end
-
-  new_resource.updated_by_last_action(true)
 end
 
 action :disable do
@@ -157,8 +159,5 @@ action :disable do
   link "#{node['nginx']['dir']}/sites-enabled/#{conf_name}" do
     to "#{node['nginx']['dir']}/sites-available/#{conf_name}"
     action :delete
-    notifies :restart, 'service[nginx]', new_resource.reload
   end
-
-  new_resource.updated_by_last_action(true)
 end
